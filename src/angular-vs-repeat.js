@@ -171,7 +171,7 @@
                     throw new Error('angular-vs-repeat: no ng-repeat directive on a child element');
                 }
 
-                // Find the node before the repeat element.
+                // Find the nodes before and after the repeat element.
                 var beforeRepeatChild = ngRepeatChild.prev();
                 var afterRepeatChild = ngRepeatChild.next();
 
