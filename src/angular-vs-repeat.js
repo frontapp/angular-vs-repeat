@@ -386,6 +386,11 @@
                             setAutoSize();
                         });
 
+                        $scope.$on('vsResetScroll', function() {
+                            $scrollParent[0].scrollTop = 0;
+                            $scrollParent[0].scrollLeft = 0;
+                        });
+
                         var _prevStartIndex,
                             _prevEndIndex,
                             _minStartIndex,
