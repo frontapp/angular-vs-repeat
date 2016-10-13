@@ -138,13 +138,14 @@
         return correction;
     }
 
+    var vsRepeatChildrenSelector = '[ng-repeat]';
     var vsRepeatModule = angular.module('vs-repeat', []).directive('vsRepeat', ['$compile', '$parse', function($compile, $parse) {
         return {
             restrict: 'A',
             scope: true,
             compile: function($element, $attrs) {
                 var repeatContainer = angular.isDefined($attrs.vsRepeatContainer) ? angular.element($element[0].querySelector($attrs.vsRepeatContainer)) : $element,
-                    ngRepeatChild = repeatContainer.children().eq(0),
+                    ngRepeatChild = repeatContainer.children(vsRepeatChildrenSelector).eq(0),
                     ngRepeatExpression,
                     childCloneHtml = ngRepeatChild[0].outerHTML,
                     expressionMatches,
@@ -162,44 +163,24 @@
                         'vsExcess': 'excess'
                     };
 
-                if (ngRepeatChild.attr('ng-repeat')) {
+                if (ngRepeatChild.length > 0) {
                     originalNgRepeatAttr = 'ng-repeat';
                     ngRepeatExpression = ngRepeatChild.attr('ng-repeat');
-                }
-                else if (ngRepeatChild.attr('data-ng-repeat')) {
-                    originalNgRepeatAttr = 'data-ng-repeat';
-                    ngRepeatExpression = ngRepeatChild.attr('data-ng-repeat');
-                }
-                else if (ngRepeatChild.attr('ng-repeat-start')) {
-                    isNgRepeatStart = true;
-                    originalNgRepeatAttr = 'ng-repeat-start';
-                    ngRepeatExpression = ngRepeatChild.attr('ng-repeat-start');
-                }
-                else if (ngRepeatChild.attr('data-ng-repeat-start')) {
-                    isNgRepeatStart = true;
-                    originalNgRepeatAttr = 'data-ng-repeat-start';
-                    ngRepeatExpression = ngRepeatChild.attr('data-ng-repeat-start');
                 }
                 else {
                     throw new Error('angular-vs-repeat: no ng-repeat directive on a child element');
                 }
+
+                // Find the node before the repeat element.
+                var beforeRepeatChild = ngRepeatChild.prev();
+                var afterRepeatChild = ngRepeatChild.next();
 
                 expressionMatches = /^\s*(\S+)\s+in\s+([\S\s]+?)(track\s+by\s+\S+)?$/.exec(ngRepeatExpression);
                 lhs = expressionMatches[1];
                 rhs = expressionMatches[2];
                 rhsSuffix = expressionMatches[3];
 
-                if (isNgRepeatStart) {
-                    var index = 0;
-                    var repeaterElement = repeatContainer.children().eq(0);
-                    while(repeaterElement.attr('ng-repeat-end') == null && repeaterElement.attr('data-ng-repeat-end') == null) {
-                        index++;
-                        repeaterElement = repeatContainer.children().eq(index);
-                        childCloneHtml += repeaterElement[0].outerHTML;
-                    }
-                }
-
-                repeatContainer.empty();
+                ngRepeatChild.remove();
                 return {
                     pre: function($scope, $element, $attrs) {
                         var repeatContainer = angular.isDefined($attrs.vsRepeatContainer) ? angular.element($element[0].querySelector($attrs.vsRepeatContainer)) : $element,
@@ -304,7 +285,9 @@
                             if (autoSize) {
                                 $scope.$$postDigest(function() {
                                     if (repeatContainer[0].offsetHeight || repeatContainer[0].offsetWidth) { // element is visible
-                                        var children = repeatContainer.children(),
+                                        var children = beforeRepeatChild.length > 0
+                                                ? beforeRepeatChild.nextUntil(afterRepeatChild)
+                                                : (afterRepeatChild.length > 0 ? afterRepeatChild.prevAll() : repeatContainer.children()),
                                             i = 0,
                                             gotSomething = false,
                                             insideStartEndSequence = false;
@@ -320,17 +303,7 @@
                                                     $scope.elementSize += children[i][offsetSize];
                                                 }
 
-                                                if (isNgRepeatStart) {
-                                                    if (children[i].attributes['ng-repeat-end'] != null || children[i].attributes['data-ng-repeat-end'] != null) {
-                                                        break;
-                                                    }
-                                                    else {
-                                                        insideStartEndSequence = true;
-                                                    }
-                                                }
-                                                else {
-                                                    break;
-                                                }
+                                                break;  
                                             }
                                             i++;
                                         }
@@ -364,10 +337,17 @@
                         childClone.eq(0).attr(originalNgRepeatAttr, lhs + ' in ' + collectionName + (rhsSuffix ? ' ' + rhsSuffix : ''));
                         childClone.addClass('vs-repeat-repeated-element');
 
-                        repeatContainer.append($beforeContent);
-                        repeatContainer.append(childClone);
-                        $compile(childClone)($scope);
-                        repeatContainer.append($afterContent);
+                        if (afterRepeatChild.length > 0) {
+                            afterRepeatChild.before($beforeContent);
+                            afterRepeatChild.before(childClone);
+                            $compile(childClone)($scope);
+                            afterRepeatChild.before($afterContent);
+                        } else {
+                            repeatContainer.append($beforeContent);
+                            repeatContainer.append(childClone);
+                            $compile(childClone)($scope);
+                            repeatContainer.append($afterContent);
+                        }
 
                         $scope.startIndex = 0;
                         $scope.endIndex = 0;
