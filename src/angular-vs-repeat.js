@@ -359,6 +359,7 @@
                         }
 
                         $scrollParent.on('scroll', scrollHandler);
+                        $scrollParent.on('mousewheel', scrollHandler);
 
                         function onWindowResize() {
                             if (typeof $attrs.vsAutoresize !== 'undefined') {
